@@ -1,7 +1,7 @@
 **برنامه‌ی کاوشگر فایل**
 
 - **نویسنده**: احمد کنی
-- **تاریخ**: ۲۳ بهمن ۱۴۰۳  
+- **تاریخ**: ۲۵ بهمن ۱۴۰۳  
 - **وضعیت**: پیش‌نویس/~~در حال بررسی~~/~~تایید شده~~
 
 ---
@@ -87,11 +87,59 @@ this.mounts = {
 | `/global.txt`     | `No match`          | Default FS (IndexedDB) |
 - همچنین توابع mount و unmount مقادیر fs را به شیء mounts اضافه و یا از آن کم می‌کنند. همچنین با استفاده از این توابع می‌توانیم آدرس‌ها و پارامترهای موقت را حذف و اضافه کنیم.
 
-#### **عملیات‌ در vfs **
+#### **عملیات‌ در vfs**
 
 پس از تعریف vfs و همچنین کلاس‌های حافظه، اکنون می‌توانیم عملیات CRUD را در vfs تعریف کنیم و همچنین از آنها استفاده کنیم.
 ابتدا برای استفاده از fs ها و همچنین تعریف عملیات در آنها نیاز داریم تا به فایل اصلی .git دسترسی داشته باشیم.
 این کار در هر محیط به یک صورت انجام می‌شود که در کلاس‌های حافظه آنها را تعریف کرده‌ایم و سپس می‌توانیم روی این فایل اصلی عملیات CRUD را انجام دهیم که در سرفصل بعدی مفصلاً تشریح خواهد شد.
+
+#### **پیاده‌سازی fs های متفاوت**
+
+با توجه به اینکه کتابخانه‌ی lightning fs یک سری امکانات متفاوت برای استفاده از محل‌های ذخیره‌سازی متفاوت در نظر گرفته و این کتابخانه نیازهای ما را برای انواع دیتابیس اغنا می‌کند این کتابخانه را استفاده می‌کنیم.
+همچنین این کتابخانه می‌تواند نیاز ما را برای پیاده‌سازی یک vfs رفع کند و درون خود یک نوع vfs پیاده‌سازی شده است. 
+بر این اساس می‌توانیم کلاسی که برای memoryFs تعریف کرده بودیم را به این شکل درآوریم:
+‍```
+```
+class MyCustomBackend {
+
+	constructor() {
+		this.files = new Map();
+		}
+	
+	async saveSuperblock(superblock) {
+		return this.files.set("!root", superblock);
+		}
+	
+	async loadSuperblock() {
+		return this.files.get("!root");
+		}
+	
+	async readFile(filepath, opts) {
+		if (!this.files.has(filepath)) {
+			throw Object.assign(new Error("File not found"), { code: "ENOENT" });
+		}
+		return this.files.get(filepath);
+		}
+	
+	async writeFile(filepath, data, opts) {
+		this.files.set(filepath, data);
+		}
+	
+	async unlink(filepath) {
+		this.files.delete(filepath);
+		}
+	
+	async stat(filepath) {
+		if (!this.files.has(filepath)) {
+			throw Object.assign(new Error("File not found"), { code: "ENOENT" });
+		}
+		return { type: "file", size: this.files.get(filepath).length };
+		}
+	}
+
+const fs = new LightningFS("fs", { backend: new MyCustomBackend() });
+```
+
 
 ---
 
