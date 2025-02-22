@@ -71,6 +71,7 @@ class VFS {
 	constructor(defaultFSType = null) {
 		this.fsType = defaultFSType || detectFS();
 		this.mounts = {};
+		this.fsTable = {};
 	} 
 	
 	createFSInstance(fsType, options) {...}
@@ -82,6 +83,40 @@ class VFS {
 
 در کلاس vfs ما با استفاده از کلاس createFSInstance یکی از فضاهای حافظه را که قبل‌تر شرح دادیم، انتخاب می‌کنیم، سپس با استفاده از آن تمام عملیات دیگر را می‌توانیم انجام دهیم. به این صورت که هر موجودیت fs یا FS Instance متدهای read, write, delete, list, rename و ... را داراست و در context مربوط به خودش تعریف و عملیات آن تعریف شده است. با انتخاب آن موجودیت امکان استفاده از آن متدها و ارتباط‌گیری با هر fs را پیدا می‌کنیم.
 این کلاس‌ها همان جایی است که ما توابع اساسی POSIX filesystem API را پیاده‌سازی می‌کنیم، همچنین بعضی توابع دیگر مانند listFiles که در API ذکر شده به صورت مستقیم وجود ندارد برای سهولت استفاده تعریف می‌شوند.
+همچنین یک fsTable داریم که در واقع شامل داده‌ی مسیرهای فایل سیستم است و ساختاری مانند مقابل دارد. این جدول همچنین اطلاعاتی شامل دسترسی‌ها را نیز در جدول آورده که دسترسی‌های کاربر را می‌تواند به او تذکر ‌دهد و از نوشتن داده‌های غیرقابل نوشتن یا غیرقابل اجرا برای او جلوگیری کند. داده‌های مورد نیاز این جدول از روی فراداده‌ای که برای هر فایل ذخیره می‌شود و برخی دیگر از اطلاعاتی که توسط گیت ذخیره شده نوشته می‌شود:
+
+```
+const fsTable = {
+  "/": {
+    type: "directory",
+    dentry_id: 12341,
+    name: "mydir",
+    parent_inode: 12345,
+    acl: { owner: "admin", permissions: "rwx", groups: { "users": "r" } },
+    children: {
+      "docs": {
+        type: "directory",
+        dentry_id: 12341,
+        name: "mydir",
+        parent_inode: 12345,
+        acl: { owner: "admin", permissions: "rwx", groups: { "users": "rw" } },
+        children: {
+          "report1.txt": {
+	        inode: 123,
+	        mode: 10043,
+	        uid: 32,
+	        gid: 12,
+            type: "file",
+            size: 20,
+            acl: { owner: "user1", permissions: "rw-", groups: { "users": "r" } }
+          }
+        }
+      }
+    }
+  }
+};
+
+```
 به طور مثال کلاس مربوط به memory به این صورت تعریف می‌شود:
 
 ```
@@ -116,7 +151,7 @@ class MemoryFS {
 
 برای این که دسترسی سریع‌تری به مسیرهای موجود در یک fs داشته باشیم و بتوانیم با یک فایل در آن کار کنیم، از این مفهوم استفاده می‌کنیم. همچنین برای خالی کردن حافظه‌ی داخلی از اطلاعات اضافی‌ای که فعلا با آن کاری نداریم و همین‌طور کم کردن پیچیدگی و جلوگیری از خطا از مفهوم unmount که مخالف mount است استفاده می‌کنیم.
 برای پیاده‌سازی این مفهوم از یک جدول و دو تابع استفاده می‌کنیم:
-- جدول mount پیاده‌سازی مرتبط با یک object جاوااسکریپتی است: 
+- جدول mount، پیاده‌سازی مرتبط با یک object جاوااسکریپتی است: 
 
 ```
 this.mounts = {
@@ -241,7 +276,7 @@ const fs = new LightningFS("fs", { backend: new MyCustomBackend() });
 
 Inode Metadata: ```
 ```
-git notes add -f -m '{"inode": 12345678, "mode": "100644", "uid": 1000, "gid": 1000, "acl": {"user": "ahmad", "permissions": "rwx"}}' (file blob OID)
+git notes add -f -m '{"inode": 12345678, "mode": "100644", "name": "file.txt", "uid": 1000, "gid": 1000, "acl": {"user": "ahmad", "permissions": "rwx"}}' (file blob OID)
 ```
 
 Dentry Metadata: ```
